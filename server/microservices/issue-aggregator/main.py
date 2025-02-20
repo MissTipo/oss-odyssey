@@ -1,7 +1,5 @@
-# FastApi app instance to initiate the server
-
 from fastapi import FastAPI
-from grapql_server import graphql_app
+from graphql_server import graphql_app
 
 app = FastAPI()
 
