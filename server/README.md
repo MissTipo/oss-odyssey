@@ -1,4 +1,4 @@
-# Open Source Contributor Hub GraphQL Server
+# Open Source Odyssey GraphQL Server
 
 This repository contains the GraphQL server for the Open Source Contributor Hub—a platform designed to help developers discover, manage, and contribute to open-source projects. The server aggregates issues from GitHub and GitLab via their APIs and offers resolvers to query and manage user-specific project issues.
 
