@@ -31,7 +31,7 @@ class Source(enum.Enum):
 @strawberry.type
 class Issue:
     id: int
-    external_id: Union[str, int]
+    external_id: strawberry.scalar(Union[str, int])
     title: str
     description: str
     state: State
