@@ -2,7 +2,7 @@ import requests
 import os
 
 GITHUB_API_URL = "https://api.github.com/graphql"
-GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")  # Ensure your token is set in the environment
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN")
 
 def fetch_github_issues(owner: str, repo: str, label: str, first: int = 10):
     query = """
@@ -48,8 +48,8 @@ def fetch_github_issues(owner: str, repo: str, label: str, first: int = 10):
 # Example usage:
 if __name__ == "__main__":
     try:
-        data = fetch_github_issues("octocat", "Hello-World", "good first issue")
-        # Process the data as needed. For instance:
+        data = fetch_github_issues("apache", "airflow", "good first issue")
+        # Process the data as needed.
         issues = data.get("data", {}).get("repository", {}).get("issues", {}).get("edges", [])
         for edge in issues:
             issue = edge["node"]
