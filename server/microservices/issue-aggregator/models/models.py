@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, Text
 from .database import Base
 
 class Issues(Base):
@@ -6,10 +6,16 @@ class Issues(Base):
 
     __tablename__ = 'issues'
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(50), nullable=False)
+    external_id = Column(Integer, nullable=True)
+    title = Column(Text, nullable=False)
     description = Column(String(200), nullable=True)
     state = Column(Boolean, default= False)
-    source = Column(String(50), nullable=True)
+    created_at = Column(String(50), nullable=True)
+    updated_at = Column(String(50), nullable=True)
+    url = Column(Text, nullable=True)
+    source = Column(Text, nullable=True)
+    labels = Column(Text, nullable=True)
+    repository_id = Column(Integer, nullable=True)
 
     """def __init__(self, title=None, description=None, status=None):
         self.title = title
