@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 import strawberry
 from graphql_server.schemas.issue_schema import Issue, State, Source
-from graphql_server.resolvers.issue_resolver import QueryResolver
+from graphql_server.resolvers.issue_resolver import QueryResolver, MutationResolver
 from models.models import Issues, Base
 from models.database import get_db
 from graphql_server.__init__ import schema  # Import actual schema
