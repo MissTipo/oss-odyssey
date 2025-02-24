@@ -9,7 +9,9 @@ import strawberry
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from graphql_server.schemas.issue_label_schema import IssueLabelAssociation
-from models.models import IssueLabel  # Assumes your ORM model is named "IssueLabel"
+from models.models import IssueLabel
+from integrations.github_integration import fetch_github_issues
+from integrations.gitlab_integration import fetch_gitlab_issues
 
 
 def map_issue_label(orm_issue_label: IssueLabel) -> IssueLabelAssociation:
@@ -23,7 +25,7 @@ def map_issue_label(orm_issue_label: IssueLabel) -> IssueLabelAssociation:
     )
 
 
-class QueryResolver:
+class IssueLabelQueryResolver:
     @staticmethod
     def get_issue_label_associations(info) -> List[IssueLabelAssociation]:
         """
@@ -62,7 +64,7 @@ class QueryResolver:
 
 
 @strawberry.type
-class MutationResolver:
+class IssueLabelMutationResolver:
     @strawberry.mutation
     def createIssueLabelAssociation(
         self, info, issue_id: int, label_id: int
