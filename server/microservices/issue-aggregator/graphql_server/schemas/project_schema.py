@@ -17,11 +17,8 @@ import datetime
 import strawberry
 import enum
 from typing import List, Union
+from .issue_schema import Source
 
-@strawberry.enum
-class Source(enum.Enum):
-    GITHUB = "github"
-    GITLAB = "gitlab"
 
 @strawberry.type
 class Project:

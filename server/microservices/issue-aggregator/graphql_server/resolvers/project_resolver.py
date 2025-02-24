@@ -10,7 +10,9 @@ import strawberry
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from graphql_server.schemas.project_schema import Project, Source
-from models.models import Projects  # Assumes your ORM model for projects is named "Projects"
+from models.models import Projects
+from integrations.github_integration import fetch_github_issues
+from integrations.gitlab_integration import fetch_gitlab_issues
 
 
 def map_project(orm_project: Projects) -> Project:
@@ -31,7 +33,7 @@ def map_project(orm_project: Projects) -> Project:
     )
 
 
-class QueryResolver:
+class ProjectQueryResolver:
     @staticmethod
     def get_projects(info) -> List[Project]:
         """
@@ -61,7 +63,7 @@ class QueryResolver:
 
 
 @strawberry.type
-class MutationResolver:
+class ProjectMutationResolver:
     @strawberry.mutation
     def createProject(
         self,
@@ -123,5 +125,24 @@ class MutationResolver:
         if repository_id is not None:
             project.repository_id = repository_id
         if owner_id is not None:
+            project.owner_id = owner_id
+        project.updated_at = datetime.datetime.utcnow()
+        db.commit()
+        db.refresh(project)
+        return map_project(project)
+
+    @strawberry.mutation
+    def deleteProject(self, info, project_id: int) -> str:
+        """
+        Deletes a project from the database.
+        """
+        db: Session = info.context["db"]
+        project = db.query(Projects).filter(Projects.id == project_id).first()
+        if not project:
+            raise Exception(f"Project with id {project_id} not found")
+        db.delete(project)
+        db.commit()
+        return f"Project with id {project_id} deleted successfully"
+
           
 
