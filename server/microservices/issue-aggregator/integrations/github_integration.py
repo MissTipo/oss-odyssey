@@ -8,6 +8,9 @@ def fetch_github_issues(owner: str, repo: str, label: str, first: int = 10):
     query = """
     query($owner: String!, $repo: String!, $label: [String!], $first: Int!) {
       repository(owner: $owner, name: $repo) {
+        primaryLanguage {
+          name
+        }
         issues(first: $first, labels: $label, states: OPEN) {
           edges {
             node {
