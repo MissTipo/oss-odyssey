@@ -9,7 +9,9 @@ import strawberry
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from graphql_server.schemas.repo_schema import Repository, Source
-from models.models import Repositories  # Assumes your ORM model is named "Repositories"
+from models.models import Repositories
+from integrations.github_integration import fetch_github_issues
+from integrations.gitlab_integration import fetch_gitlab_issues
 
 
 def map_repository(orm_repo: Repositories) -> Repository:
@@ -30,7 +32,7 @@ def map_repository(orm_repo: Repositories) -> Repository:
     )
 
 
-class QueryResolver:
+class RepoQueryResolver:
     @staticmethod
     def get_repositories(info) -> List[Repository]:
         """
@@ -60,7 +62,7 @@ class QueryResolver:
 
 
 @strawberry.type
-class MutationResolver:
+class RepoMutationResolver:
     @strawberry.mutation
     def createRepository(
         self, info, external_id: str, name: str, full_name: str,

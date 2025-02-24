@@ -9,7 +9,9 @@ import strawberry
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from graphql_server.schemas.label_schema import Label as GraphQLLabel
-from models.models import Labels  # Assuming your ORM model for labels is named 'Labels'
+from models.models import Labels
+from integrations.github_integration import fetch_github_issues
+from integrations.gitlab_integration import fetch_gitlab_issues
 
 
 def map_label(orm_label: Labels) -> GraphQLLabel:
@@ -25,7 +27,7 @@ def map_label(orm_label: Labels) -> GraphQLLabel:
     )
 
 
-class QueryResolver:
+class LabelQueryResolver:
     @staticmethod
     def get_labels(info) -> List[GraphQLLabel]:
         """
@@ -55,7 +57,7 @@ class QueryResolver:
 
 
 @strawberry.type
-class MutationResolver:
+class LabelMutationResolver:
     @strawberry.mutation
     def createLabel(
         self, info, name: str, color: str, description: str, repository_id: int

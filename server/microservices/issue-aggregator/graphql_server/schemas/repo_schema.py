@@ -14,11 +14,13 @@ Each repository is stored as a dictionary with the following keys:
 import strawberry
 import enum
 from typing import List
+from .issue_schema import Source
 
-@strawberry.enum
+"""@strawberry.enum
 class Source(enum.Enum):
     GITHUB = "github"
     GITLAB = "gitlab"
+"""
 
 @strawberry.type
 class Repository:
