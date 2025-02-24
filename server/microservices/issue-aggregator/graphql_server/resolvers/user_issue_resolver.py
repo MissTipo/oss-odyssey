@@ -10,7 +10,9 @@ import strawberry
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from graphql_server.schemas.user_issue_schema import UserIssue, Status
-from models.models import UserIssues  # Assumes your ORM model for user issues is named "UserIssues"
+from models.models import UserIssues
+from integrations.github_integration import fetch_github_issues
+from integrations.gitlab_integration import fetch_gitlab_issues
 
 
 def map_user_issue(orm_user_issue: UserIssues) -> UserIssue:
@@ -19,7 +21,7 @@ def map_user_issue(orm_user_issue: UserIssues) -> UserIssue:
     """
     status_enum = Status(orm_user_issue.status)
     return UserIssue(
-        issue_id=orm_user_issue.id,  # Assuming the ORM primary key is 'id'
+        issue_id=orm_user_issue.id,
         issue=orm_user_issue.issue,
         project_id=orm_user_issue.project_id,
         status=status_enum,
@@ -29,7 +31,7 @@ def map_user_issue(orm_user_issue: UserIssues) -> UserIssue:
     )
 
 
-class QueryResolver:
+class UserIssueQueryResolver:
     @staticmethod
     def get_user_issues(info) -> List[UserIssue]:
         """
@@ -59,7 +61,7 @@ class QueryResolver:
 
 
 @strawberry.type
-class MutationResolver:
+class UserIssueMutationResolver:
     @strawberry.mutation
     def createUserIssue(
         self,
@@ -77,7 +79,7 @@ class MutationResolver:
         new_user_issue = UserIssues(
             issue=issue,
             project_id=project_id,
-            status=status.value,  # Assuming the ORM stores status as a string
+            status=status.value,
             pr_link=pr_link,
             created_at=now,
             updated_at=now,
