@@ -1,0 +1,28 @@
+# requirements.in for User Management & Authentication Service
+
+# FastAPI and ASGI server
+fastapi
+uvicorn
+
+# Database and ORM
+SQLAlchemy
+psycopg2-binary
+
+# Environment variable management
+python-dotenv
+python-dateutil
+python-multipart
+
+# Authentication, password hashing, and JWT
+passlib[bcrypt]
+PyJWT
+authlib
+
+# Database migrations (optional, but recommended)
+alembic
+
+# (Optional dependencies that FastAPI may require; they might be auto-installed,
+# but you can include them here if desired)
+anyio
+starlette
+
