@@ -1,157 +1,125 @@
-# Open Source Odyssey GraphQL Server
+# Open-Source Contributor Hub - Server
 
-This repository contains the GraphQL server for the Open Source Contributor Hub—a platform designed to help developers discover, manage, and contribute to open-source projects. The server aggregates issues from GitHub and GitLab via their APIs and offers resolvers to query and manage user-specific project issues.
+## Overview
+
+The Open-Source Contributor Hub server is a FastAPI-based microservice that aggregates beginner-friendly issues from GitHub (and optionally GitLab). It fetches issue data via external APIs, processes and stores the data in a PostgreSQL database (using SQLAlchemy), and exposes a GraphQL API (using Strawberry) for querying and mutating data. The server supports background tasks (via Celery) and caching (using Redis) to ensure up-to-date information with high performance.
 
 ## Features
 
-- **Aggregated Issues:** Fetches issues from GitHub and GitLab based on filters like labels (e.g., `good first issue`, `help wanted`).
-- **GraphQL API:** Built with FastAPI and Strawberry, providing a robust and flexible API.
-- **Project & Issue Management:** Enables users to create projects, add issues to projects, mark issues as in progress, completed, or dropped, and update or delete issues as needed.
-- **Background Refresh:** Supports periodic updates of issue data (e.g., via Celery) to keep information current.
-- **Caching:** Uses Redis to cache frequently accessed data, reducing external API calls.
-- **Database Integration:** Stores persistent data in PostgreSQL.
+- **Issue Aggregation**
+  - Fetches issues from GitHub (and GitLab) using GraphQL/REST.
+  - Filters issues by labels (e.g., "good first issue"), source, and programming language.
+  - Caches frequently accessed data with Redis to reduce external API calls.
 
-## Table of Contents
+- **GraphQL API**
+  - Query resolvers to retrieve and filter issues.
+  - Mutation resolvers (e.g., `refreshIssues`) to refresh external data and update the database.
 
-- [Installation](#installation)
-- [Usage](#usage)
-- [Development](#development)
-- [Project Structure](#project-structure)
-- [GraphQL API](#graphql-api)
-- [Testing](#testing)
-- [Contributing](#contributing)
-- [License](#license)
+- **Data Persistence**
+  - Uses PostgreSQL with SQLAlchemy ORM for storing issue data.
 
-## Installation
+- **Background Processing & Caching**
+  - Scheduled background tasks using Celery.
+  - Redis caching to improve performance and reduce load on external services.
 
-### Prerequisites
+- **Configuration**
+  - Environment-based configuration via a `.env` file (loaded using `python-dotenv`).
 
-- Python 3.8 or higher
-- PostgreSQL (for persistent storage)
-- Redis (for caching and background task queues)
-- (Optional) Docker for containerized deployment
+## Technologies
 
-### Setup Steps
+- **Backend Framework:** FastAPI
+- **GraphQL Library:** Strawberry
+- **Database:** PostgreSQL (SQLAlchemy ORM)
+- **Caching:** Redis
+- **Task Scheduler:** Celery
+- **External Integrations:** GitHub GraphQL API (and GitLab API, if needed)
+- **Containerization:** Docker (optional)
+- **Deployment:** Kubernetes / Cloud Providers (AWS, GCP, etc.)
+
+## Setup and Installation
 
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/MissTipo/open-source-contributor-hub.git
-   cd open-source-contributor-hub/graphql_server
+   git clone <repository-url>
+   cd server/microservices/issue-aggregator
 
-
-2. **Create a virtual Environment:**
+2. **Create and Activate a Virtual Environment:**
 
    ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-3. **Install the Dependencies:**
+3. **Install Dependencies:**
 
    ```bash
    pip install -r requirements.txt
 
+4. **Configure Environment Variables:**
 
-4. **Set Up the Environment Variables:**
-
-   Create a `.env` file in the project root and add the following environment variables:
+   Create a `.env` file in the project root with the following variables:
 
    ```bash
-   DATABASE_URL=postgresql://<username>:<password>@<host>:<port>/<database>
-   REDIS_URL=redis://<host>:<port>
-   GITHUB_TOKEN=<your_github_token>
-   GITLAB_TOKEN=<your_gitlab_token>
-   ```
+    GITHUB_TOKEN="your_github_token_here"
+    GITLAB_TOKEN="your_gitlab_token_here"
+    POSTGRES_DB_URL="postgresql://username:password@localhost:5432/yourdbname"
+    REDIS_URL="redis://localhost:6379"
 
-5. **Run the Migrations:**
+5. **Run Database Migrations (if applicable):**
 
    ```bash
    alembic upgrade head
-   ```
 
 6. **Start the Server:**
-
    ```bash
-   uvicorn graphql_server.main:app --reload
-   ```
 
-7. **Access the GraphQL Playground:**
+    uvicorn main:app --reload
 
-   Open `http://localhost:8000/graphql` in your browser to access the GraphQL Playground.
+  The GraphQL endpoint will be available at http://127.0.0.1:8000/graphql.
 
 ## Usage
 
- **Run the Background Worker (Optional):**
+  **GraphQL Playground:**
+        Visit http://127.0.0.1:8000/graphql to explore your GraphQL API.
 
-   If you want to enable background tasks (e.g., periodic issue updates), start the Celery worker:
+  **Example Query:**
+  ```bash
+  {
+    issues {
+      id
+      title
+      description
+      state
+      source
+      labels
+    }
+  }
+```
+ **Example Mutation (Refresh Issues):**
 
-   ```bash
-   celery -A graphql_server.worker worker --loglevel=info
-   ```
+  ```bash
+  mutation {
+    refreshIssues
+  }
+```
 
-## Development
+## Testing
 
-**Running Tests:**
+  **Run Tests:**
   ```bash
   pytest
   ```
-## Project Structure
+  This will run all tests located in the tests/ directory.
 
-graphql_server/
-├── __init__.py
-├── schemas/
-│   └── issue_schema.py       # GraphQL schema definitions for issues
-├── resolvers/
-│   └── issue_resolver.py     # Query and mutation resolvers for issue operations
-├── services/
-│   └── issue_service.py      # Service layer for fetching and managing issues
-├── celery_worker.py          # Celery configuration for background tasks
-└── main.py                   # Entry point for the FastAPI application
+## Deployment
 
-## GraphQL API
-
-The GraphQL endpoint is available at /graphql. Here are some example operations:
-
-### Query Example
-
-```graphql
-query {
-  issues {
-    id
-    title
-    url
-    project {
-      id
-      name
-    }
-  }
-}
-```
-
-### Mutation Example
-
-```graphql
-mutation {
-  createIssue(
-    title: "Update README"
-    url: "
-
-## Testing
-**Unit Tests:** Located in the `tests/` directory.
-
-**Run the Tests:**
-```bash
-pytest
-```
-
-## Contributing
-
-Contributions are welcome! Please refer to the [contributing guidelines](CONTRIBUTING.md) for more information.
+  **Containerization & Orchestration:**
+        Build Docker images and deploy using Kubernetes or your preferred orchestration tool.
+    CI/CD Pipeline:
+        Use GitHub Actions, Jenkins, or CircleCI for automated testing and deployment.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-```
+This project is licensed under the MIT License.
 
 
