@@ -1,0 +1,18 @@
+# Virtual environments
+aggregator/
+authenticator/
+.env
+
+# Python caches and artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+
+# Database files
+*.sqlite3
+test.db
+
+# Log files
+*.log
