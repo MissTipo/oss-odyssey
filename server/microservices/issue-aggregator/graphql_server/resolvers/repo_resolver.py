@@ -10,7 +10,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from graphql_server.schemas.repo_schema import Repository, Source
 from models.models import Repositories
-from integrations.github_integration import fetch_github_issues
+from integrations.github_integration import fetch_github_issues, fetch_github_repositories
 from integrations.gitlab_integration import fetch_gitlab_issues
 
 
@@ -29,6 +29,7 @@ def map_repository(orm_repo: Repositories) -> Repository:
         description=orm_repo.description,
         url=orm_repo.url,
         source=source_enum,
+        language=orm_repo.language,
     )
 
 
@@ -60,74 +61,54 @@ class RepoQueryResolver:
         orm_repos = db.query(Repositories).filter(Repositories.source == source.value).all()
         return [map_repository(repo) for repo in orm_repos]
 
+    @staticmethod
+    def get_repositories_by_label(info, label: str) -> List[Repository]:
+        # For remote fetching based on label.
+        data = fetch_github_repositories(label=label)
+        repos = []
+        for repo in data:
+            repos.append(Repository(
+                id=repo.get("id", 0),
+                external_id=repo.get("external_id", ""),
+                name=repo.get("name", ""),
+                full_name=repo.get("full_name", ""),
+                description=repo.get("description", ""),
+                url=repo.get("url", ""),
+                source=Source.GITHUB,
+                language=orm_repo.language,
+                # language=repo.get("language", "")
+            ))
+        return repos
+
 
 @strawberry.type
 class RepoMutationResolver:
     @strawberry.mutation
-    def createRepository(
-        self, info, external_id: str, name: str, full_name: str,
-        description: str, url: str, source: Source
-    ) -> Repository:
-        """
-        Creates a new repository in the database.
-        """
+    def refreshRepositories(self, info, label: str) -> Repository:
         db: Session = info.context["db"]
-        new_repo = Repositories(
-            external_id=external_id,
-            name=name,
-            full_name=full_name,
-            description=description,
-            url=url,
-            source=source.value
-        )
-        db.add(new_repo)
-        db.commit()
-        db.refresh(new_repo)
-        return map_repository(new_repo)
-
-    @strawberry.mutation
-    def updateRepository(
-        self, info, id: int,
-        external_id: Optional[str] = None,
-        name: Optional[str] = None,
-        full_name: Optional[str] = None,
-        description: Optional[str] = None,
-        url: Optional[str] = None,
-        source: Optional[Source] = None,
-    ) -> Repository:
-        """
-        Updates an existing repository.
-        """
-        db: Session = info.context["db"]
-        repo = db.query(Repositories).filter(Repositories.id == id).first()
-        if not repo:
-            raise Exception(f"Repository with id {id} not found")
-        if external_id is not None:
-            repo.external_id = external_id
-        if name is not None:
-            repo.name = name
-        if full_name is not None:
-            repo.full_name = full_name
-        if description is not None:
-            repo.description = description
-        if url is not None:
-            repo.url = url
-        if source is not None:
-            repo.source = source.value
-        db.commit()
-        db.refresh(repo)
-        return map_repository(repo)
-
-    @strawberry.mutation
-    def deleteRepository(self, info, id: int) -> str:
-        """
-        Deletes a repository from the database.
-        """
-        db: Session = info.context["db"]
-        repo = db.query(Repositories).filter(Repositories.id == id).first()
-        if not repo:
-            raise Exception(f"Repository with id {id} not found")
-        db.delete(repo)
-        db.commit()
-        return f"Repository with id {id} deleted successfully"
+        try:
+            data = fetch_github_repositories(label=label)
+            # Clear current repositories.
+            db.query(Repositories).delete()
+            last_repo = None
+            for repo_data in data:
+                new_repo = Repositories(
+                    external_id=repo_data.get("external_id", ""),
+                    name=repo_data.get("name", ""),
+                    full_name=repo_data.get("full_name", ""),
+                    description=repo_data.get("description", ""),
+                    url=repo_data.get("url", ""),
+                    source="github",
+                    # language=repo_data.get("language", "")
+                    language= ""
+                )
+                db.add(new_repo)
+                last_repo = new_repo
+            db.commit()
+            if last_repo is None:
+                raise Exception("No repositories fetched")
+            return map_repository(last_repo)  # Use your mapping function to convert ORM to GraphQL type.
+        except Exception as e:
+            db.rollback()
+            raise Exception(f"Failed to refresh repositories: {str(e)}")
 
