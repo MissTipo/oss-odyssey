@@ -1,5 +1,6 @@
 from strawberry.fastapi import GraphQLRouter
 import strawberry
+from strawberry.types import Info
 from typing import List
 from .schemas.issue_schema import Issue
 from .schemas.label_schema import Label
@@ -59,19 +60,19 @@ class Query:
 class Mutation:
     # Issue mutations
     refresh_issues: str = strawberry.mutation(resolver=MutationResolver.refreshIssues)
-    """create_issue: Issue = strawberry.field(resolver=MutationResolver.create_issue)
-    update_issue: Issue = strawberry.field(resolver=MutationResolver.update_issue)
-    delete_issue: Issue = strawberry.field(resolver=MutationResolver.delete_issue)"""
 
     # Label mutations
-    createLabel: Label = strawberry.mutation(resolver=LabelMutationResolver.createLabel)
-    updateLabel: Label = strawberry.mutation(resolver=LabelMutationResolver.updateLabel)
-    deleteLabel: str = strawberry.mutation(resolver=LabelMutationResolver.deleteLabel)
+    @strawberry.mutation
+    def refresh_labels(self, info: Info, repositoryOwner: str, repositoryName: str) -> str:
+        return LabelMutationResolver.refreshLabels(self, info=info, repository_owner=repositoryOwner, repository_name=repositoryName)
+    # refresh_labels: str = strawberry.mutation(resolver=LabelMutationResolver.refreshLabels)
 
     # Repository mutations
-    createRepository: Repository = strawberry.mutation(resolver=RepoMutationResolver.createRepository)
-    updateRepository: Repository = strawberry.mutation(resolver=RepoMutationResolver.updateRepository)
-    deleteRepository: str = strawberry.mutation(resolver=RepoMutationResolver.deleteRepository)
+    @strawberry.mutation
+    def refresh_repositories(self, info: Info, label: str) -> Repository:
+        return RepoMutationResolver.refreshRepositories(self, info=info, label=label)
+
+    # refresh_repositories: Repository = strawberry.mutation(resolver=RepoMutationResolver.refreshRepositories)
 
     # Project mutations
     createProject: Project = strawberry.mutation(resolver=ProjectMutationResolver.createProject)
