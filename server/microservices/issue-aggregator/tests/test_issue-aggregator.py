@@ -1,5 +1,8 @@
-import os
 from dotenv import load_dotenv
+# Load environment variables from .env file
+load_dotenv()
+
+import os
 from fastapi.testclient import TestClient
 import datetime
 import pytest
@@ -13,30 +16,37 @@ from graphql_server.schemas.project_schema import Project
 from graphql_server.schemas.label_schema import Label
 from graphql_server.schemas.repo_schema import Repository
 from graphql_server.resolvers.issue_resolver import QueryResolver, MutationResolver
-from models.models import Issues, Base
+from models.models import Issues, Base, Labels, Repositories
 from models.database import get_db
 from graphql_server.__init__ import schema  # Import actual schema
 from main import app
 
-# Load environment variables from .env file
-load_dotenv()
-
 # --- Test Database Setup ---
-TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 
 engine = create_engine(TEST_DATABASE_URL)
 TestingSessionLocal = scoped_session(sessionmaker(bind=engine, autoflush=False, autocommit=False))
 
 # client = GraphQLTestClient(schema)
+def test_github_token():
+    load_dotenv()
+    token = os.getenv("GITHUB_TOKEN")
+    assert token is not None, "GITHUB_TOKEN is not set"
+
 
 @pytest.fixture(scope="function")
 def db_session():
     """Creates a new database session for a test."""
     Base.metadata.create_all(bind=engine)  # Create tables
+    connection = engine.connect()
+    transaction = connection.begin()
     session = TestingSessionLocal()
+
     yield session
-    session.rollback()  # Clean up after test
+
     session.close()
+    transaction.rollback()  # Clean up after test
+    connection.close()
     Base.metadata.drop_all(bind=engine)  # Drop tables after each test
 
 # --- Create the Test Client ---
@@ -48,7 +58,7 @@ def graphql_client(db_session):
         yield client
     app.dependency_overrides.clear()
 
-# --- Tests ---
+# --- Tests issues ---
 
 def test_get_issues_empty(graphql_client):
     """Test that when no issues exist, an empty list is returned."""
@@ -119,23 +129,81 @@ def test_get_issue_by_id(graphql_client, db_session):
     assert data["state"] == "OPEN"
     assert data["source"] == "GITHUB"
 
+def test_refresh_issues(graphql_client, db_session):
+    """
+    Test refreshing issues from GitHub.
+    (This mutation fetches issues from GitHub rather than relying solely on local data.)
+    """
+    mutation_refresh = """
+    mutation {
+      refreshIssues
+    }
+    """
+    response = graphql_client.post("/graphql", json={"query": mutation_refresh})
+    result = response.json()
+    assert "errors" not in result, f"GraphQL errors: {result.get('errors')}"
+    # Expect a success message
+    assert "Issues refreshed successfully" in result["data"]["refreshIssues"]
+
+    # Query issues after refresh.
+    query = "{ issues { id title } }"
+    response = graphql_client.post("/graphql", json={"query": query})
+    result = response.json()
+    issues = result["data"]["issues"]
+    assert isinstance(issues, list)
+    # Optionally, assert that some issues were fetched.
+    # For now, we ensure that the list is returned.
+    assert issues is not None
+
+
 
 # --- Label Tests ---
 
 def test_labels_empty(graphql_client):
     """Test that when no labels exist, an empty list is returned."""
-    query = "{ labels { labelId name } }"
+    query = "{ labels { labelId name color description repositoryId } }"
     response = graphql_client.post("/graphql", json={"query": query})
     result = response.json()
     assert "errors" not in result
     assert result["data"]["labels"] == []
+    
+def test_get_label_by_id(graphql_client, db_session):
+    """Test retrieving a label by its unique ID."""
+    # Insert a label into the database
+    label = Labels(name="bug", color="#ff0000", description="Bug label", repository_id=1)
+    db_session.add(label)
+    db_session.commit()
+    
+    query = f"""
+    {{
+      label(labelId: {label.id}) {{
+        labelId
+        name
+        color
+        description
+        repositoryId
+      }}
+    }}
+    """
+    response = graphql_client.post("/graphql", json={"query": query})
+    result = response.json()
+    assert "errors" not in result, result.get("errors")
+    data = result["data"]["label"]
+    assert data["name"] == "bug"
+    assert data["color"] == "#ff0000"
 
-def test_create_update_delete_label(graphql_client, db_session):
-    """Test creating, updating, and deleting a label."""
-    # Create label
-    mutation_create = """
-    mutation {
-      createLabel(name: "Bug", color: "#ff0000", description: "Bug label", repositoryId: 1) {
+def test_get_labels_by_repository(graphql_client, db_session):
+    """Test retrieving labels by repository ID."""
+    # Insert multiple labels
+    label1 = Labels(name="bug", color="#ff0000", description="Bug label", repository_id=1)
+    label2 = Labels(name="feature", color="#00ff00", description="Feature label", repository_id=1)
+    label3 = Labels(name="docs", color="#0000ff", description="Documentation", repository_id=2)
+    db_session.add_all([label1, label2, label3])
+    db_session.commit()
+    
+    query = """
+    {
+      labelsByRepository(repositoryId: 1) {
         labelId
         name
         color
@@ -144,94 +212,174 @@ def test_create_update_delete_label(graphql_client, db_session):
       }
     }
     """
-    response = graphql_client.post("/graphql", json={"query": mutation_create})
+    response = graphql_client.post("/graphql", json={"query": query})
     result = response.json()
-    assert "errors" not in result
-    label = result["data"]["createLabel"]
-    labelId = label["labelId"]
-    assert label["name"] == "Bug"
+    assert "errors" not in result, result.get("errors")
+    labels = result["data"]["labelsByRepository"]
+    assert isinstance(labels, list)
+    # Expect only the two labels with repository_id=1
+    assert len(labels) == 2
 
-    # Update label
-    mutation_update = f"""
-    mutation {{
-      updateLabel(labelId: {labelId}, name: "Feature") {{
-        labelId
-        name
-      }}
-    }}
+def test_refresh_labels(graphql_client, db_session):
     """
-    response = graphql_client.post("/graphql", json={"query": mutation_update})
-    result = response.json()
-    updated_label = result["data"]["updateLabel"]
-    assert updated_label["name"] == "Feature"
-
-    # Delete label
-    mutation_delete = f"""
-    mutation {{
-      deleteLabel(labelId: {labelId})
-    }}
+    Test refreshing labels from GitHub.
+    (This mutation fetches labels from GitHub rather than creating them manually.)
     """
-    response = graphql_client.post("/graphql", json={"query": mutation_delete})
+    mutation_refresh = """
+    mutation {
+      refreshLabels(repositoryOwner: "apache", repositoryName: "airflow")
+    }
+    """
+    response = graphql_client.post("/graphql", json={"query": mutation_refresh})
     result = response.json()
+    # Since refreshLabels returns a string, we can check for a success message.
     assert "errors" not in result
-    assert "deleted successfully" in result["data"]["deleteLabel"]
+    assert "Labels refreshed successfully" in result["data"]["refreshLabels"]
+
+    # Query labels after refresh.
+    query = "{ labels { labelId name color description repositoryId } }"
+    response = graphql_client.post("/graphql", json={"query": query})
+    result = response.json()
+    labels = result["data"]["labels"]
+    assert isinstance(labels, list)
+    # Optionally, check that at least one label was fetched (if you know the remote repo has labels)
+    # For now, just ensure that a list is returned.
+    assert labels is not None
+
 
 # --- Repository Tests ---
 
 def test_repositories_empty(graphql_client):
     """Test that when no repositories exist, an empty list is returned."""
-    query = "{ repositories { id name } }"
+    query = "{ repositories { id name language } }"
     response = graphql_client.post("/graphql", json={"query": query})
     result = response.json()
     assert "errors" not in result
     assert result["data"]["repositories"] == []
 
-def test_create_update_delete_repository(graphql_client, db_session):
-    """Test creating, updating, and deleting a repository."""
-    # Create repository
-    mutation_create = """
-    mutation {
-      createRepository(externalId:"123", name:"TestRepo", fullName:"Test/TestRepo", description:"A test repo", url:"http://example.com", source: GITHUB) {
+def test_get_repository_by_id(graphql_client, db_session):
+    """Test retrieving a repository by its unique ID."""
+    repo = Repositories(
+        external_id="123",
+        name="TestRepo",
+        full_name="Test/TestRepo",
+        description="A test repository",
+        url="http://example.com",
+        source="github",
+        language="Python"
+    )
+    db_session.add(repo)
+    db_session.commit()
+    
+    query = f"""
+    {{
+      repository(id: {repo.id}) {{
         id
         name
-        fullName
-        description
-        url
-        source
-      }
-    }
-    """
-    response = graphql_client.post("/graphql", json={"query": mutation_create})
-    result = response.json()
-    assert "errors" not in result
-    repo = result["data"]["createRepository"]
-    repo_id = repo["id"]
-    assert repo["name"] == "TestRepo"
-
-    # Update repository
-    mutation_update = f"""
-    mutation {{
-      updateRepository(id: {repo_id}, name:"UpdatedRepo") {{
-        id
-        name
+        language
       }}
     }}
     """
-    response = graphql_client.post("/graphql", json={"query": mutation_update})
+    response = graphql_client.post("/graphql", json={"query": query})
     result = response.json()
-    updated_repo = result["data"]["updateRepository"]
-    assert updated_repo["name"] == "UpdatedRepo"
+    assert "errors" not in result, result.get("errors")
+    data = result["data"]["repository"]
+    assert data["name"] == "TestRepo"
+    assert data["language"] == "Python"
 
-    # Delete repository
-    mutation_delete = f"""
-    mutation {{
-      deleteRepository(id: {repo_id})
-    }}
+def test_get_repositories_by_source(graphql_client, db_session):
+    """Test retrieving repositories filtered by source."""
+    repo1 = Repositories(
+        external_id="123",
+        name="RepoGitHub",
+        full_name="Test/RepoGitHub",
+        description="A test repository",
+        url="http://example.com",
+        source="github",
+        language="Python"
+    )
+    repo2 = Repositories(
+        external_id="456",
+        name="RepoGitLab",
+        full_name="Test/RepoGitLab",
+        description="Another test repository",
+        url="http://example.com",
+        source="gitlab",
+        language="JavaScript"
+    )
+    db_session.add_all([repo1, repo2])
+    db_session.commit()
+    
+    query = """
+    {
+      repositoriesBySource(source: GITHUB) {
+        id
+        name
+        language
+      }
+    }
     """
-    response = graphql_client.post("/graphql", json={"query": mutation_delete})
+    response = graphql_client.post("/graphql", json={"query": query})
+    result = response.json()
+    assert "errors" not in result, result.get("errors")
+    repos = result["data"]["repositoriesBySource"]
+    assert isinstance(repos, list)
+    # Expect only the GitHub repository
+    assert len(repos) == 1
+    assert repos[0]["name"] == "RepoGitHub"
+
+# Optionally, you can add a test for get_repositories_by_label.
+# Since it fetches remote data, you may choose to skip it in unit tests.
+@pytest.mark.skip(reason="Remote fetch not tested in unit tests")
+def test_get_repositories_by_label(graphql_client):
+    query = """
+    {
+      repositoriesByLabel(label: "hacktober") {
+        id
+        name
+        language
+      }
+    }
+    """
+    response = graphql_client.post("/graphql", json={"query": query})
+    result = response.json()
+    repos = result["data"]["repositoriesByLabel"]
+    assert isinstance(repos, list)
+
+def test_refresh_repositories(graphql_client, db_session):
+    """
+    Test refreshing repositories from GitHub using a topic filter.
+    (Repositories are fetched remotely rather than created manually.)
+    Note: Since refreshRepositories returns a Repository object, we must provide a selection set.
+    """
+    mutation_refresh = """
+    mutation {
+      refreshRepositories(label: "hacktober") {
+        id
+        name
+        language
+      }
+    }
+    """
+    response = graphql_client.post("/graphql", json={"query": mutation_refresh})
     result = response.json()
     assert "errors" not in result
-    assert "deleted successfully" in result["data"]["deleteRepository"]
+    repo = result["data"]["refreshRepositories"]
+    # Check that the returned repository object has the expected fields.
+    assert repo is not None
+    assert "id" in repo
+    assert "name" in repo
+    assert "language" in repo
+
+    # Query repositories after refresh.
+    query = "{ repositories { id name language } }"
+    response = graphql_client.post("/graphql", json={"query": query})
+    result = response.json()
+    repos = result["data"]["repositories"]
+    assert isinstance(repos, list)
+    # Optionally, check that at least one repository was fetched.
+    assert repos is not None
+
 
 # --- Project Tests ---
 
