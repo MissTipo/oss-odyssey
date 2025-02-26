@@ -12,6 +12,8 @@ from strawberry import ID
 from graphql_server.schemas.issue_schema import Issue as GraphQLIssue, State, Source
 from models.models import Issues
 from sqlalchemy.orm import Session
+from sqlalchemy import cast
+from sqlalchemy.dialects.postgresql import JSONB
 from integrations.github_integration import fetch_github_issues
 from integrations.gitlab_integration import fetch_gitlab_issues
 
@@ -40,6 +42,10 @@ def map_issue(orm_issue: Issues) -> GraphQLIssue:
             labels_list = [_label.strip() for _label in raw_labels.split(",") if _label.strip()]
     else:
         labels_list = []
+
+    # Final safety check: ensure labels_list is a list.
+    if not isinstance(labels_list, list):
+        labels_list = [labels_list]
 
 
     return GraphQLIssue(
@@ -86,7 +92,7 @@ class QueryResolver:
     @staticmethod
     def get_issues_by_label(info, label: str) -> List[GraphQLIssue]:
         db: Session = info.context["db"]
-        orm_issues = db.query(Issues).filter(Issues.labels.contains(label)).all()
+        orm_issues = db.query(Issues).filter(Issues.labels.op("@>")(cast([label], JSONB))).all()
         return [map_issue(issue) for issue in orm_issues]
 
 @strawberry.type
