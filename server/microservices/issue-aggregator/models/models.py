@@ -1,6 +1,15 @@
+import os
 import datetime
-from sqlalchemy import Column, Integer, String, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, Text, DateTime, ForeignKey, JSON
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.mutable import MutableList
 from .database import Base
+
+# Use JSONB by default, but if running tests with SQLite, use JSON.
+if os.getenv("TESTING", "0") == "1":
+    json_type = JSON
+else:
+    json_type = JSONB
 
 class Issues(Base):
     """ Issues Model """
@@ -11,11 +20,11 @@ class Issues(Base):
     title = Column(Text, nullable=False)
     description = Column(String(200), nullable=True)
     state = Column(Boolean, default= False)
-    created_at = Column(String(50), nullable=True)
-    updated_at = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=True)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=True)
     url = Column(Text, nullable=True)
     source = Column(Text, nullable=True)
-    labels = Column(Text, nullable=True)
+    labels = Column(MutableList.as_mutable(json_type), nullable=True)
     repository_id = Column(Integer, nullable=True)
 
 
@@ -44,6 +53,7 @@ class Repositories(Base):
     description = Column(Text, nullable=True)
     url = Column(String, nullable=False)
     source = Column(String, nullable=False)  # Expected values: 'github' or 'gitlab'
+    language = Column(String, nullable=True)
 
     def __repr__(self):
         return f"<Repository(id={self.id}, name='{self.name}')>"
