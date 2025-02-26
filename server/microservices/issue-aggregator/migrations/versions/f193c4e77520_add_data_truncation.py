@@ -34,7 +34,8 @@ def upgrade() -> None:
                existing_nullable=True)
     op.alter_column('issues', 'labels',
                existing_type=sa.VARCHAR(length=50),
-               type_=sa.Text(),
+               type_=sa.JSON(),
+               postgresql_using='labels::json',
                existing_nullable=True)
     # ### end Alembic commands ###
 
