@@ -8,7 +8,7 @@ from passlib.context import CryptContext
 
 from graphql_server.schemas.auth_schema import RegisterInput, LoginInput, Token
 from graphql_server.schemas.user_schema import User as GraphQLUser
-from models.user import User as ORMUser
+from models.models import User as ORMUser
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key")
