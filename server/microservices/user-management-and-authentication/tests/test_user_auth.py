@@ -1,19 +1,36 @@
+from dotenv import load_dotenv
+# Load environment variables from .env file
+load_dotenv()
+
+from sqlalchemy.pool import StaticPool
 import os
 import pytest
 import jwt
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from models.database import Base, get_db
+from models.models import Base, User as ORMUser, OAuthCredential
+from graphql_server.schemas.user_schema import User
+from graphql_server.resolvers.user_resolver import UserQueryResolver
+from graphql_server.resolvers.auth_resolver import AuthMutationResolver
+from models.database import get_db
 from graphql_server import schema
 from strawberry.fastapi import GraphQLRouter
 from fastapi import FastAPI
 
 # Use an in-memory SQLite database for tests.
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+SQLALCHEMY_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(SQLALCHEMY_DATABASE_URL, poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Create a single global test session.
+global_test_session = TestingSessionLocal()
+
+def override_get_db():
+    # Always yield the same session.
+    yield global_test_session
+
 
 # Create all tables.
 Base.metadata.create_all(bind=engine)
@@ -24,6 +41,17 @@ def override_get_db():
         yield db
     finally:
         db.close()
+
+# Fixture to clear the database before each test.
+@pytest.fixture(autouse=True)
+def clear_db():
+    global_test_session.query(OAuthCredential).delete()
+    global_test_session.query(ORMUser).delete()
+    global_test_session.commit()
+    yield
+    global_test_session.query(OAuthCredential).delete()
+    global_test_session.query(ORMUser).delete()
+    global_test_session.commit()
 
 # Create a base FastAPI app and override the get_db dependency.
 app = FastAPI()
@@ -146,11 +174,15 @@ def test_me_authenticated():
     }
     response_reg = client.post("/graphql", json={"query": query_reg, "variables": variables_reg})
     data_reg = response_reg.json()
-    user_id = data_reg["data"]["register"]["id"]
+    user_id = int(data_reg["data"]["register"]["id"])
 
-    # Override the context getter to simulate an authenticated user.
+    users = global_test_session.query(ORMUser).all()
+
     def auth_context_getter():
-        return {"db": next(override_get_db()), "user_id": user_id}
+        db = TestingSessionLocal()
+        user = db.query(ORMUser).filter(ORMUser.id == user_id).first()
+        # global_test_session.expire_all()
+        return {"db": db, "user_id": user_id}
 
     # Create a temporary router with the authenticated context.
     auth_graphql_app = GraphQLRouter(schema, context_getter=auth_context_getter)
