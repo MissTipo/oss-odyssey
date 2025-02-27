@@ -16,6 +16,8 @@ class User(Base):
     
     # Relationship for OAuth credentials, if needed
     oauth_credentials = relationship("OAuthCredential", back_populates="user", cascade="all, delete-orphan")
+    def __repr__(self):
+        return f"<User(id={self.id}, username='{self.username}')>"
 
 class OAuthCredential(Base):
     __tablename__ = "oauth_credentials"
@@ -27,4 +29,6 @@ class OAuthCredential(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     
     user = relationship("User", back_populates="oauth_credentials")
+    def __repr__(self):
+        return f"<OAuthCredential(id={self.id}, provider='{self.provider}', user_id={self.user_id})>"
 
