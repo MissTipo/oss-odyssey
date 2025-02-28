@@ -3,12 +3,16 @@ import datetime
 import jwt
 import strawberry
 from fastapi import HTTPException
+import requests
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
 from graphql_server.schemas.auth_schema import RegisterInput, LoginInput, Token
 from graphql_server.schemas.user_schema import User as GraphQLUser
 from models.models import User as ORMUser
+
+GITHUB_CLIENT_ID = os.environ.get("GITHUB_CLIENT_ID")
+GITHUB_CLIENT_SECRET = os.environ.get("GITHUB_CLIENT_SECRET")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key")
@@ -59,21 +63,42 @@ class AuthMutationResolver:
     @strawberry.mutation
     def githubAuth(self, info, code: str) -> Token:
         db: Session = info.context["db"]
-        # In a real-world scenario, you would:
-        #   1. Exchange the provided 'code' for an access token with GitHub.
-        #   2. Use the access token to fetch the GitHub user's email and username.
-        #   3. Create or update the user in your database.
-        # For this example, we'll simulate a GitHub user:
-        github_email = "githubuser@example.com"
-        github_username = "githubuser"
-        
+
+        # Exchange the code for an access token
+        token_url = "https://github.com/login/oauth/access_token"
+        headers = {"Accept": "application/json"}
+        data = {
+            "client_id": GITHUB_CLIENT_ID,
+            "client_secret": GITHUB_CLIENT_SECRET,
+            "code": code
+        }
+        response = requests.post(token_url, headers=headers, data=data)
+        token_data = response.json()
+
+        if "access_token" not in token_data:
+            raise HTTPException(status_code=400, detail="Failed to authenticate with GitHub")
+
+        access_token = token_data["access_token"]
+
+        # Get GitHub user details
+        user_url = "https://api.github.com/user"
+        user_headers = {"Authorization": f"token {access_token}"}
+        user_response = requests.get(user_url, headers=user_headers)
+        github_user = user_response.json()
+
+        if "email" not in github_user:
+            raise HTTPException(status_code=400, detail="GitHub account has no public email")
+
+        github_email = github_user["email"]
+        github_username = github_user["login"]
+
+        # Check if the user already exists
         user = db.query(ORMUser).filter(ORMUser.email == github_email).first()
         if not user:
-            # Register new GitHub user (you might handle this differently)
             user = ORMUser(
                 username=github_username,
                 email=github_email,
-                hashed_password=pwd_context.hash("default_password"),  # Placeholder; consider better handling.
+                hashed_password=None,  # No password for GitHub users
                 is_active=True,
                 created_at=datetime.datetime.utcnow(),
                 updated_at=datetime.datetime.utcnow()
@@ -81,7 +106,10 @@ class AuthMutationResolver:
             db.add(user)
             db.commit()
             db.refresh(user)
-        token_data = {"user_id": user.id, "email": user.email}
-        access_token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
-        return Token(access_token=access_token, token_type="bearer")
+
+        # Generate JWT token
+        token_payload = {"user_id": user.id, "email": user.email}
+        jwt_token = jwt.encode(token_payload, SECRET_KEY, algorithm=ALGORITHM)
+
+        return Token(access_token=jwt_token, token_type="bearer")
 
