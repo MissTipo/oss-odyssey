@@ -66,7 +66,7 @@ class AuthMutationResolver:
 
         # Exchange the code for an access token
         token_url = "https://github.com/login/oauth/access_token"
-        headers = {"Accept": "application/json"}
+        headers = {"Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded"}
         data = {
             "client_id": GITHUB_CLIENT_ID,
             "client_secret": GITHUB_CLIENT_SECRET,
@@ -86,7 +86,17 @@ class AuthMutationResolver:
         user_response = requests.get(user_url, headers=user_headers)
         github_user = user_response.json()
 
-        if "email" not in github_user:
+        if "email" not in github_user or not github_user["email"]:
+            # Optionally, fetch emails if email is not public
+            emails_url = "https://api.github.com/user/emails"
+            emails_response = requests.get(emails_url, headers=user_headers)
+            if emails_response.status_code == 200:
+                emails = emails_response.json()
+                primary_email = next((e["email"] for e in emails if e.get("primary")), None)
+                github_user["email"] = primary_email
+
+
+        if not github_user.get("email"):
             raise HTTPException(status_code=400, detail="GitHub account has no public email")
 
         github_email = github_user["email"]
