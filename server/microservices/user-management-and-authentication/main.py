@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from graphql_server import graphql_app
 from middleware.auth import authMiddleware
 from webhooks.webhook import router as webhook_router
+from webhooks.oauth_callback import router as oauth_callback_router
 
 app = FastAPI()
 
@@ -19,6 +20,7 @@ app.middleware(authMiddleware)
 
 # Include your webhook routes
 app.include_router(webhook_router)
+app.include_router(oauth_callback_router)
 
 @app.get("/")
 def read_root():
