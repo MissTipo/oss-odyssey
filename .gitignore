@@ -1,6 +1,7 @@
 # Virtual environments
 aggregator/
 authenticator/
+bookmark/
 .env
 
 # Python caches and artifacts
