@@ -25,4 +25,6 @@ alembic
 # but you can include them here if desired)
 anyio
 starlette
+strawberry-graphql
+requests
 
