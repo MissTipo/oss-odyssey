@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from decouple import config
 
 # Database connection
-SQLALCHEMY_DATABASE_URL = config("POSTGRES_DB_URL")
+SQLALCHEMY_DATABASE_URL = config("ISSUE_DB_URL")
 engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True, poolclass=NullPool)
 
 # create session factory
