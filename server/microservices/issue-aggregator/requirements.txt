@@ -11,6 +11,10 @@ anyio==4.8.0
     #   -r requirements.in
     #   starlette
     #   watchfiles
+certifi==2025.1.31
+    # via requests
+charset-normalizer==3.4.1
+    # via requests
 click==8.1.8
     # via
     #   -r requirements.in
@@ -35,6 +39,7 @@ idna==3.10
     # via
     #   -r requirements.in
     #   anyio
+    #   requests
 psycopg2-binary==2.9.10
     # via -r requirements.in
 pydantic==2.10.6
@@ -54,6 +59,8 @@ python-dotenv==1.0.1
 python-multipart==0.0.20
     # via -r requirements.in
 pyyaml==6.0.2
+    # via -r requirements.in
+requests==2.32.3
     # via -r requirements.in
 six==1.17.0
     # via
@@ -81,6 +88,8 @@ typing-extensions==4.12.2
     #   sqlalchemy
     #   strawberry-graphql
     #   uvicorn
+urllib3==2.3.0
+    # via requests
 uvicorn==0.34.0
     # via -r requirements.in
 uvloop==0.21.0

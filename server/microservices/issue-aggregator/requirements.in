@@ -20,5 +20,6 @@ strawberry-graphql
 typing_extensions
 uvicorn
 uvloop
+requests
 watchfiles
 websockets
