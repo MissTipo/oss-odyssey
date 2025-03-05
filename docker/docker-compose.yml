@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  issue-aggregator:
+    build: 
+      context: ../server/microservices/issue-aggregator
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../server/microservices/issue-aggregator/.env
+    environment:
+      - DATABASE_URL=${ISSUE_DB_URL}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+
+  user-management:
+    build:
+      context: ../server/microservices/user-management-and-authentication
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8000"
+    env_file:
+      - ../server/microservices/user-management-and-authentication/.env
+    environment:
+      - DATABASE_URL=${USER_DB_URL}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+
+  bookmarking:
+    build:
+      context: ../server/microservices/bookmarks-and-progress
+      dockerfile: Dockerfile
+    ports:
+      - "8002:8000"
+    env_file:
+      - ../server/microservices/bookmarks-and-progress/.env
+    environment:
+      - DATABASE_URL=${BOOKMARKS_DB_URL}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+
+  # Optional: a database service for all microservices
+  db:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+      - POSTGRES_DB=master_db
+    ports:
+      - "5432:5432"
+
