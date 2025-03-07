@@ -17,3 +17,6 @@ test.db
 
 # Log files
 *.log
+
+# Deployment env configmap
+deployment/k8s-manifests/*-env-configmap.yaml
