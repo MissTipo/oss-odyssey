@@ -1,0 +1,22 @@
+_format_version: "1.1"
+services:
+  - name: issue-aggregator
+    url: http://issue-aggregator:8000
+    routes:
+      - name: issue-aggregator-route
+        paths:
+          - /issues
+        strip_path: true
+  - name: user-management
+    url: http://user-management:8001
+    routes:
+      - name: user-management-route
+        paths:
+          - /users
+  - name: bookmarking
+    url: http://bookmarking:8002
+    routes:
+      - name: bookmarking-route
+        paths:
+          - /bookmark
+        strip_path: true

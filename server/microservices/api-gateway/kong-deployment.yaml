@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+    spec:
+      containers:
+      - name: kong
+        image: kong:latest
+        env:
+          - name: KONG_DATABASE
+            value: "off"
+          - name: KONG_DECLARATIVE_CONFIG
+            value: /etc/kong/kong.yml
+          - name: KONG_ADMIN_LISTEN
+            value: "0.0.0.0:8001"
+          - name: KONG_PROXY_LISTEN
+            value: "0.0.0.0:8000"
+          - name: KONG_LOG_LEVEL
+            value: "debug"
+          - name: KONG_ADMIN_GUI_URL
+            value: ""
+        volumeMounts:
+          - name: kong-config-volume
+            mountPath: /etc/kong/kong.yml
+            subPath: kong.yml
+      volumes:
+        - name: kong-config-volume
+          configMap:
+            name: kong-config
+
