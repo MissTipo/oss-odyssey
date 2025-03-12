@@ -13,6 +13,10 @@ services:
       - name: user-management-route
         paths:
           - /users
+      - name: graphql-route
+        paths:
+          - /graphql
+        strip_path: false # This is important for GraphQL
   - name: bookmarking
     url: http://bookmarking:8002
     routes:
