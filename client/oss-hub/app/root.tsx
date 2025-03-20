@@ -6,27 +6,12 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
-// import ApolloClientPackage from "@apollo/client";
-// const { ApolloProvider, ApolloClient, InMemoryCache } = ApolloClientPackage;
 
-// import {
-//   ApolloClient,
-//   inMemoryCache,
-//   ApolloProvider,
-//   gql
-// } from "@apollo/client";
-
+import { RouterProvider } from "react-router";
+import router from "./routes";
 import type { Route } from "./+types/root";
 import "./app.css";
-
-// set up Apollo client
-// const client = new ApolloClient({
-//   uri: "http://192.168.49.2:31579/graphql",
-//   cache: InMemoryCache({
-//     assumeImmutableResults: true,
-//   }),
-//   ssrMode: false,
-// });
+import ClientApolloProvider from "./clientApolloProvider.tsx"
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -59,12 +44,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-import ClientApolloProvider from "./clientApolloProvider.tsx"
-
 export default function App() {
   return (
     <Layout>
-      <ClientApolloProvider />
+      <ClientApolloProvider>
+        <RouterProvider router={router} />
+      </ClientApolloProvider>
     </Layout>
   )
 }
